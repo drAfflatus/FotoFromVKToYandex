@@ -38,36 +38,51 @@ def load_dotenv():
     dotenv.load_dotenv(dotenv.find_dotenv(filename='config.env',usecwd=True))
 
 class YaApiClient:
-    def __init__(self,ya_tok,name_folder="images_from_VK"):
+    def __init__(self,ya_tok):
         self.token = ya_tok
-        self.n_folder = name_folder
 
-    def check_create_folder(self):
+    def check_create_folder(self,name_folder):
         url_api_ya = 'https://cloud-api.yandex.net/v1/disk/resources'
         # create_folder_url = 'https://cloud-api.yandex.net/v1/disk/resources'
-        params = {'path': self.n_folder}
+        params = {'path': name_folder}
         headers ={ 'Authorization' : self.token}
         response =requests.put(url_api_ya,headers=headers,params = params)
-        result = False
+        result = ['',False]
         match response.status_code:
-            case 409: result = ['Папка уже существует'+' (ЯДиск)',True]
-            case 507: result = ['Недостаточно свободного места'+' (ЯДиск)',False]
-            case 503: result = ['Сервис временно недоступен'+' (ЯДиск)',False]
-            case 429: result = ['Слишком много запросов.'+' (ЯДиск)',False]
-            case 423: result = ['Технические работы. Сейчас можно только просматривать и скачивать файлы.'+'(ЯДиск)',False]
-            case 406: result = ['Ресурс не может быть представлен в запрошенном формате.'+'( ЯДиск)',False]
-            case 403: result = ['API недоступно. Ваши файлы занимают больше места, чем у вас есть. Удалите лишнее или '
-                                'увеличьте объём Яндекс Диска.',False]
-            case 401: result = ['Не авторизирован '+' ЯДиск',False]
-            case 400: result = ['Некорректные данные.'+'( ЯДиск)',False]
-            case 201:result = ['Ок.',True]
+            case 409:
+                result = ['Папка уже существует'+' (ЯДиск)',True]
+            case 507:
+                result = ['Недостаточно свободного места'+' (ЯДиск)',False]
+            case 503:
+                result = ['Сервис временно недоступен'+' (ЯДиск)',False]
+            case 429:
+                result = ['Слишком много запросов.'+' (ЯДиск)',False]
+            case 423:
+                result = ['Технические работы. Сейчас можно только просматривать и скачивать файлы.'+'(ЯДиск)',False]
+            case 406:
+                result = ['Ресурс не может быть представлен в запрошенном формате.'+'( ЯДиск)',False]
+            case 403:
+                result = ['API недоступно. Ваши файлы занимают больше места, чем у вас есть. Удалите лишнее или '
+                          'увеличьте объём Яндекс Диска.',False]
+            case 401:
+                result = ['Не авторизирован '+' ЯДиск',False]
+            case 400:
+                result = ['Некорректные данные.'+'( ЯДиск)',False]
+            case 201:
+                result = ['Ок.',True]
 
         return result
 
-    def writing_data(self,data_writing):
+    def writing_data(self,data_writing,name_folder="images_from_VK"):
+
+        res = self.check_create_folder(name_folder)
+        if not(res[1]):
+            print(res[0], '\n Прерываю работу.')
+            sys.exit()
+
         for name_file,pic in tqdm(data_writing.items(),ncols=80,ascii=True, desc='Запись в облако'):
             url_link =  'https://cloud-api.yandex.net/v1/disk/resources/upload'
-            params = {'path': f'{self.n_folder}/{name_file}','overwrite':1}
+            params = {'path': f'{name_folder}/{name_file}','overwrite':1}
             headers = {'Authorization': self.token}
             response = requests.get(url_link,params=params,headers=headers)
             #print(response.status_code)
@@ -113,12 +128,6 @@ class VKApiClient:
             print('Что-то пошло не так', '\nпохоже, что просрочен токен VK или нет прав доступа к этому ресурсу' )
             sys.exit()
 
-
-        res = ya.check_create_folder()
-        if res[1] == False:
-            print(res[0], '\n Прерываю работу.')
-            sys.exit()
-
         list_likes = []
         json_pack =[]
         dict_urls ={}
@@ -155,6 +164,6 @@ if __name__ == '__main__':
     if count_pic == 0: count_pic=5
     ya = YaApiClient(ya_token)
     vk = VKApiClient(vk_token, user_id,ya)
-    aa=vk.get_profile_photos(count_pic)
-    ya.writing_data(aa[0])
-    create_json_file(aa[1], j_file)
+    data_pic=vk.get_profile_photos(count_pic)
+    ya.writing_data(data_pic[0],'Images_VK')
+    create_json_file(data_pic[1], j_file)
